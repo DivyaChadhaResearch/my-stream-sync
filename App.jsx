@@ -1,27 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, Radar, Legend 
+  RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip
 } from 'recharts';
 import { 
-  Upload, Brain, Heart, User, Sparkles, ChevronRight, 
-  FileText, CheckCircle2, AlertCircle, Loader2, GraduationCap,
-  TrendingUp, Briefcase, BookOpen
+  Upload, Brain, Heart, Sparkles, ChevronRight, 
+  FileText, CheckCircle2, AlertCircle, Loader2,
+  TrendingUp, Briefcase, Info
 } from 'lucide-react';
 
-// Enhanced API key detection for compatibility across different environments
+// Enhanced API key detection for Netlify/Vite
 const getApiKey = () => {
   try {
-    // Check for Vite-style environment variables
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+    if (import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
       return import.meta.env.VITE_GEMINI_API_KEY;
     }
-    // Fallback for standard Node/React environment variables
-    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_GEMINI_API_KEY) {
-      return process.env.REACT_APP_GEMINI_API_KEY;
-    }
   } catch (e) {
-    console.warn("Environment check failed, defaulting to empty string.");
+    // Fallback for non-Vite environments
   }
   return ""; 
 };
@@ -32,17 +27,29 @@ const App = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [academicData, setAcademicData] = useState(null);
+  
+  // Custom Aptitude Scores based on user requirements
   const [aptitudeScores, setAptitudeScores] = useState({
-    numerical: 50, verbal: 50, logical: 50, spatial: 50, 
-    abstract: 50, mechanical: 50, clerical: 50, coding: 50
+    numerical: 50,
+    verbal: 50,
+    logical: 50,
+    spatial: 50,
+    abstract: 50,
+    mechanical: 50,
+    clerical: 50,
+    coding: 50
   });
+
   const [interests, setInterests] = useState({
-    activity: 'Gaming', youtube: 'Science & Tech', problemSolving: 'Analytical', workStyle: 'Solo'
+    activity: 'Gaming',
+    youtube: 'Science & Tech',
+    problemSolving: 'Analytical',
+    workStyle: 'Solo'
   });
+
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // --- CSV Handling ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -70,11 +77,11 @@ const App = () => {
   const generateSampleCSV = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Class,Exam,English,Language_II,Math,Science,Social_Science\n"
-      + "9,PT1,38,35,39,37,36\n"
-      + "9,PT2,37,36,40,38,35\n"
-      + "9,PT3,39,34,38,39,37\n"
-      + "9,Half_Yearly,76,70,78,75,72\n"
-      + "9,Annual,75,72,79,77,74\n"
+      + "9,PT1,35,32,38,36,34\n"
+      + "9,PT2,36,33,39,37,35\n"
+      + "9,PT3,34,31,40,38,36\n"
+      + "9,Half_Yearly,72,68,78,74,70\n"
+      + "9,Annual,74,70,79,76,72\n"
       + "10,PT1,36,34,39,38,35\n"
       + "10,PT2,37,35,40,39,36\n"
       + "10,PT3,38,36,38,37,38\n"
@@ -84,7 +91,7 @@ const App = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "student_academic_data.csv");
+    link.setAttribute("download", "academic_records_template.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -95,22 +102,21 @@ const App = () => {
     setError(null);
     
     if (!apiKey) {
-      setError("API Key missing. Please ensure your VITE_GEMINI_API_KEY is configured.");
+      setError("API Key missing! Go to Netlify settings and add VITE_GEMINI_API_KEY.");
       setLoading(false);
       return;
     }
 
-    const systemPrompt = `You are an expert Career Counselor and AI Data Architect. 
-    Analyze the provided student data (Academic CSV, Aptitude Scores, Interests) to recommend a 11th-grade stream.
-    Output must be a valid JSON object.`;
+    const systemPrompt = `You are a Career Counselor. Analyze Academic marks, Aptitude scores, and Interests. 
+    Recommend a stream (Science PCM/PCB, Commerce, Humanities).
+    Return ONLY a JSON object.`;
 
     const userQuery = `
-      ACADEMIC DATA: ${JSON.stringify(academicData)}
-      APTITUDE SCORES: ${JSON.stringify(aptitudeScores)}
-      INTERESTS/PERSONALITY: ${JSON.stringify(interests)}
+      ACADEMICS: ${JSON.stringify(academicData)}
+      APTITUDE: ${JSON.stringify(aptitudeScores)}
+      PERSONALITY: ${JSON.stringify(interests)}
       
-      Generate a JSON Decision Package with:
-      1. primaryStream, 2. confidenceScores (Science, Commerce, Humanities), 3. explanation, 4. careerPathways, 5. visualSummary.
+      JSON keys: primaryStream, confidenceScores (object), explanation (the "Why"), careerPathways (array), visualSummary.
     `;
 
     try {
@@ -125,239 +131,230 @@ const App = () => {
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      
       const jsonResult = JSON.parse(data.candidates[0].content.parts[0].text);
       setResult(jsonResult);
       setStep(5);
     } catch (err) {
-      console.error(err);
-      setError("AI Analysis failed. " + err.message);
+      setError("AI failed to respond. Check your API Key and internet connection.");
       setLoading(false);
     }
   };
 
-  const ProgressHeader = () => (
-    <div className="flex justify-between items-center mb-8 px-4">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <div key={s} className="flex flex-col items-center flex-1">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-2 transition-all duration-300 ${
-            step >= s ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-400'
-          }`}>
-            {step > s ? <CheckCircle2 size={20} /> : s}
-          </div>
-          <span className={`text-xs font-semibold ${step >= s ? 'text-emerald-700' : 'text-slate-400'}`}>
-            {['Academic', 'Aptitude', 'Interests', 'Analysis', 'Results'][s-1]}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
+        {/* Navigation / Header */}
         <header className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold mb-4">
-            <Sparkles size={16} /> AI STREAM-SYNC
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold mb-4">
+            <Sparkles size={14} /> AI-POWERED CAREER GUIDANCE
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 mb-2">Student Stream Recommendation</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Stream Suggestion Architect</h1>
         </header>
 
-        <ProgressHeader />
+        {/* Step Progress */}
+        <div className="flex justify-between mb-12 max-w-2xl mx-auto">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <div key={s} className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                step >= s ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+              }`}>
+                {step > s ? <CheckCircle2 size={16} /> : s}
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden min-h-[400px]">
+        <main className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+          
+          {/* STEP 1: UPLOAD */}
           {step === 1 && (
             <div className="p-12 text-center">
-              <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FileText size={40} />
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Upload size={32} />
               </div>
-              <h2 className="text-2xl font-bold mb-2">Step 1: Upload CSV</h2>
-              <p className="text-slate-500 mb-6">Provide your Class 9 & 10 marks for all Periodic Tests and Exams.</p>
-              <div className="flex flex-col items-center gap-4 mt-8">
-                <label className="cursor-pointer bg-emerald-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition-colors flex items-center gap-2">
-                  <Upload size={20} /> Choose CSV File
+              <h2 className="text-2xl font-bold mb-2">Upload Academic Marks</h2>
+              <p className="text-slate-500 mb-8">Upload your Class 9 & 10 CSV file (PTs, Half Yearly, Annual).</p>
+              
+              <div className="flex flex-col items-center gap-4">
+                <label className="cursor-pointer bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
+                  <FileText size={18} /> Choose CSV File
                   <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
                 </label>
-                <button onClick={generateSampleCSV} className="text-emerald-600 font-semibold text-sm underline hover:text-emerald-800">
-                  Download Sample Template
+                <button onClick={generateSampleCSV} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
+                  <Info size={14} /> Download Sample CSV Template
                 </button>
               </div>
             </div>
           )}
 
+          {/* STEP 2: APTITUDE */}
           {step === 2 && (
             <div className="p-8">
-              <h2 className="text-2xl font-bold mb-6">Step 2: Aptitude Scores</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center gap-2 mb-6 text-blue-600">
+                <Brain size={24} />
+                <h2 className="text-xl font-bold text-slate-800">Aptitude & Skills</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                 {Object.keys(aptitudeScores).map(key => (
                   <div key={key} className="space-y-2">
-                    <div className="flex justify-between text-sm font-bold capitalize">
-                      <span className="text-slate-600">{key.replace('_', ' ')} Ability</span>
-                      <span className="text-emerald-600">{aptitudeScores[key]}%</span>
+                    <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <span>{key.replace('_', ' ')}</span>
+                      <span className="text-blue-600">{aptitudeScores[key]}%</span>
                     </div>
-                    <input type="range" min="0" max="100" value={aptitudeScores[key]} 
+                    <input 
+                      type="range" min="0" max="100" 
+                      value={aptitudeScores[key]} 
                       onChange={(e) => setAptitudeScores({...aptitudeScores, [key]: parseInt(e.target.value)})}
-                      className="w-full h-2 bg-slate-100 rounded-lg appearance-none accent-emerald-600 cursor-pointer"
+                      className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
                     />
                   </div>
                 ))}
               </div>
-              <div className="mt-8 flex justify-end">
-                <button onClick={() => setStep(3)} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
-                  Next <ChevronRight size={20} />
+              <div className="mt-10 flex justify-end">
+                <button onClick={() => setStep(3)} className="bg-slate-900 text-white px-10 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all">
+                  Next: Interests
                 </button>
               </div>
             </div>
           )}
 
+          {/* STEP 3: INTERESTS */}
           {step === 3 && (
             <div className="p-8">
-              <h2 className="text-2xl font-bold mb-6">Step 3: Personal Interests</h2>
+              <div className="flex items-center gap-2 mb-6 text-pink-500">
+                <Heart size={24} />
+                <h2 className="text-xl font-bold text-slate-800">Interests & Hobbies</h2>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="font-bold text-slate-700">Favorite Activity</label>
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-slate-600 uppercase">Favorite Activity</label>
                   <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                     value={interests.activity}
-                    onChange={(e) => setInterests({...interests, activity: e.target.value})} 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => setInterests({...interests, activity: e.target.value})}
                   >
-                    <option>Gaming</option>
-                    <option>Reading</option>
-                    <option>Debating</option>
-                    <option>Arts</option>
+                    <option>Gaming</option><option>Reading</option><option>Debating</option><option>Arts</option><option>Coding</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="font-bold text-slate-700">YouTube Genre</label>
-                  <select 
-                    value={interests.youtube}
-                    onChange={(e) => setInterests({...interests, youtube: e.target.value})} 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option>Science & Tech</option>
-                    <option>Business & Finance</option>
-                    <option>Creative Design</option>
-                    <option>History & Arts</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-bold text-slate-700">Problem-solving Style</label>
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-slate-600 uppercase">Problem Solving Style</label>
                   <div className="flex gap-2">
-                    {['Creative', 'Analytical'].map(style => (
+                    {['Creative', 'Analytical'].map(s => (
                       <button 
-                        key={style}
-                        onClick={() => setInterests({...interests, problemSolving: style})}
-                        className={`flex-1 p-3 rounded-xl border-2 font-bold transition-all ${
-                          interests.problemSolving === style ? 'border-emerald-600 bg-emerald-50 text-emerald-600' : 'border-slate-100 text-slate-400'
+                        key={s}
+                        onClick={() => setInterests({...interests, problemSolving: s})}
+                        className={`flex-1 p-3 rounded-xl border-2 font-bold text-sm transition-all ${
+                          interests.problemSolving === s ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-100 text-slate-400'
                         }`}
                       >
-                        {style}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-bold text-slate-700">Preferred Work</label>
-                  <div className="flex gap-2">
-                    {['Solo', 'Group'].map(mode => (
-                      <button 
-                        key={mode}
-                        onClick={() => setInterests({...interests, workStyle: mode})}
-                        className={`flex-1 p-3 rounded-xl border-2 font-bold transition-all ${
-                          interests.workStyle === mode ? 'border-emerald-600 bg-emerald-50 text-emerald-600' : 'border-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {mode}
+                        {s}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="mt-10 flex justify-end">
+              <div className="mt-12 flex justify-end">
                 <button 
-                  onClick={() => { setStep(4); analyzeData(); }} 
-                  className="bg-emerald-600 text-white px-10 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"
+                  onClick={() => { setStep(4); analyzeData(); }}
+                  className="bg-blue-600 text-white px-12 py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
                 >
-                  Analyze My Future <Sparkles size={20} />
+                  Generate Recommendation
                 </button>
               </div>
             </div>
           )}
 
+          {/* STEP 4: LOADING */}
           {step === 4 && (
-            <div className="p-20 text-center">
-              <Loader2 className="animate-spin text-emerald-600 mx-auto mb-6" size={60} />
-              <h2 className="text-2xl font-bold mb-2">AI Architect at Work...</h2>
-              <p className="text-slate-500">Synthesizing academic trends, aptitude peaks, and personality markers.</p>
+            <div className="p-24 text-center">
+              <Loader2 className="animate-spin text-blue-600 mx-auto mb-6" size={48} />
+              <h2 className="text-2xl font-bold mb-2">Architecting Your Results</h2>
+              <p className="text-slate-400">Processing academic metrics and neural aptitude peaks...</p>
               {error && (
-                <div className="mt-8 p-4 bg-red-50 text-red-600 rounded-xl inline-flex items-center gap-2 border border-red-100">
-                  <AlertCircle size={20} /> {error}
+                <div className="mt-6 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm font-medium">
+                  <AlertCircle size={16} className="inline mr-2" /> {error}
                 </div>
               )}
             </div>
           )}
 
+          {/* STEP 5: RESULTS */}
           {step === 5 && result && (
-            <div className="p-8 animate-in fade-in duration-700">
-              <div className="bg-emerald-600 text-white p-8 rounded-3xl mb-8 shadow-xl shadow-emerald-100">
-                <span className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-2 block">Primary Stream Suggestion</span>
-                <h2 className="text-4xl font-black mb-4">{result.primaryStream}</h2>
-                <p className="mt-4 text-lg text-emerald-50 leading-relaxed">{result.explanation}</p>
+            <div className="p-8 animate-in fade-in duration-1000">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-10 rounded-3xl mb-8 relative overflow-hidden">
+                <div className="relative z-10">
+                  <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Primary Stream Suggestion</span>
+                  <h2 className="text-4xl font-black mt-3 mb-4">{result.primaryStream}</h2>
+                  <p className="text-blue-50 leading-relaxed max-w-2xl opacity-90">{result.explanation}</p>
+                </div>
+                <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                  <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-700">
-                    <TrendingUp size={20} className="text-emerald-600" /> Match Confidence
-                  </h3>
-                  <div className="space-y-4">
-                    {Object.entries(result.confidenceScores).map(([stream, score]) => (
-                      <div key={stream}>
-                        <div className="flex justify-between text-xs font-bold mb-1 text-slate-500 uppercase">
-                          <span>{stream}</span>
-                          <span>{score}%</span>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <h3 className="font-bold mb-6 flex items-center gap-2 text-slate-700 uppercase text-xs tracking-widest">
+                      <TrendingUp size={16} /> Confidence Breakdown
+                    </h3>
+                    <div className="space-y-5">
+                      {Object.entries(result.confidenceScores).map(([stream, score]) => (
+                        <div key={stream}>
+                          <div className="flex justify-between text-xs font-black mb-1.5 text-slate-500 uppercase">
+                            <span>{stream}</span>
+                            <span>{score}%</span>
+                          </div>
+                          <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${score}%` }}></div>
+                          </div>
                         </div>
-                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-500 transition-all duration-1000" 
-                            style={{ width: `${score}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase text-xs tracking-widest">
+                      <Briefcase size={16} /> Career Pathways
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {result.careerPathways.map(path => (
+                        <span key={path} className="bg-white px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 shadow-sm">
+                          {path}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                  <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-700">
-                    <Briefcase size={20} className="text-emerald-600" /> Career Pathways
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase text-xs tracking-widest">
+                    <Brain size={16} /> Aptitude Web
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {result.careerPathways.map(career => (
-                      <span key={career} className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 shadow-sm">
-                        {career}
-                      </span>
-                    ))}
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={Object.entries(aptitudeScores).map(([k, v]) => ({ subject: k, value: v }))}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                        <Radar dataKey="value" stroke="#2563eb" fill="#2563eb" fillOpacity={0.5} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 p-4 bg-blue-50 rounded-xl text-xs font-bold text-blue-800 italic leading-relaxed">
+                    "{result.visualSummary}"
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 p-6 bg-white rounded-2xl border border-slate-100 text-center italic text-slate-500">
-                "{result.visualSummary}"
-              </div>
-
-              <div className="mt-10 flex justify-center">
+              <div className="mt-12 text-center">
                 <button 
-                  onClick={() => { setStep(1); setResult(null); setAcademicData(null); }}
-                  className="text-slate-400 hover:text-emerald-600 font-bold transition-colors"
+                  onClick={() => setStep(1)}
+                  className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-all"
                 >
-                  Restart Assessment
+                  Start New Evaluation
                 </button>
               </div>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );
